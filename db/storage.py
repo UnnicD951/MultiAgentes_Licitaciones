@@ -10,3 +10,8 @@ def subir_archivo(path: str, contenido: bytes) -> str:
         {"content-type": "application/pdf", "upsert": "true"},
     )
     return path
+
+
+def descargar_archivo(path: str) -> bytes:
+    client = get_client()
+    return client.storage.from_(STORAGE_BUCKET).download(path)

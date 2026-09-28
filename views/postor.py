@@ -1,8 +1,14 @@
 import streamlit as st
 
 from db.client import get_client
-from db.storage import subir_archivo
+from db.storage import descargar_archivo, subir_archivo
 from rag.ingest import indexar_documento
+
+COLUMNAS_CRITERIOS = ["tipo", "descripcion", "referencia", "obligatorio"]
+
+
+def _tabla_criterios(criterios: list[dict]) -> list[dict]:
+    return [{k: c.get(k) for k in COLUMNAS_CRITERIOS} for c in criterios]
 
 
 def render():
@@ -23,6 +29,32 @@ def render():
     )
     concurso = opciones[concurso_id_seleccionado]
     st.caption(concurso.get("descripcion") or "")
+
+    if concurso.get("bases_pdf_path"):
+        bases_pdf_bytes = descargar_archivo(concurso["bases_pdf_path"])
+        st.download_button(
+            "📄 Descargar Bases Integradas / TDR (.pdf)",
+            data=bases_pdf_bytes,
+            file_name=f"bases_{concurso['nombre']}.pdf",
+            mime="application/pdf",
+        )
+    else:
+        st.warning("Esta convocatoria todavía no tiene las Bases Integradas disponibles para descarga.")
+
+    criterios = client.table("criterios").select("*").eq("concurso_id", concurso["id"]).execute().data
+    if criterios:
+        with st.expander(f"Ver requisitos de calificación ({len(criterios)} criterios)"):
+            st.caption(
+                "Extraídos automáticamente de las Bases. Revisa siempre el PDF completo, "
+                "ya que aquí solo se resume el requisito, no el texto legal íntegro."
+            )
+            st.table(_tabla_criterios(criterios))
+
+    st.markdown(
+        "**Formato de presentación:** sube tu Propuesta Técnica y tu CV Documentado, cada "
+        "uno como un único archivo PDF, incluyendo todas las Declaraciones Juradas y Anexos "
+        "exigidos en las Bases Integradas dentro del mismo documento."
+    )
 
     with st.form("postulacion"):
         ruc = st.text_input("RUC")

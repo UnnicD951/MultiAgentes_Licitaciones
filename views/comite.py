@@ -3,10 +3,17 @@ import streamlit as st
 from agents.extractor import extraer_criterios
 from agents.orchestrator import evaluar_postor
 from db.client import get_client
-from db.storage import subir_archivo
+from db.storage import descargar_archivo, subir_archivo
 from rag.pdf_extract import extraer_paginas, texto_completo
 from reports.acta import generar_acta
 from reports.matriz import generar_matriz_comparativa
+from theme import badge_html
+
+COLUMNAS_CRITERIOS = ["tipo", "descripcion", "referencia", "obligatorio"]
+
+
+def _tabla_criterios(criterios: list[dict]) -> list[dict]:
+    return [{k: c.get(k) for k in COLUMNAS_CRITERIOS} for c in criterios]
 
 
 def _crear_concurso():
@@ -56,11 +63,13 @@ def _crear_concurso():
         ]).execute()
 
     st.success(f"Convocatoria '{nombre}' creada con {len(criterios)} criterios extraídos.")
-    st.dataframe(criterios)
+    st.table(_tabla_criterios(criterios))
 
 
-def _semaforo(veredicto: str) -> str:
-    return "🟢 Cumple" if veredicto == "Cumple" else "🔴 No Cumple"
+def _badge_veredicto(veredicto: str) -> str:
+    if veredicto == "Cumple":
+        return badge_html("🟢 Cumple", "ml-badge-cumple")
+    return badge_html("🔴 No Cumple", "ml-badge-no-cumple")
 
 
 def _gestionar_concursos():
@@ -83,9 +92,18 @@ def _gestionar_concursos():
 
     st.caption(concurso.get("descripcion") or "")
 
+    if concurso.get("bases_pdf_path"):
+        bases_pdf_bytes = descargar_archivo(concurso["bases_pdf_path"])
+        st.download_button(
+            "📄 Descargar Bases Integradas (.pdf)",
+            data=bases_pdf_bytes,
+            file_name=f"bases_{concurso['nombre']}.pdf",
+            mime="application/pdf",
+        )
+
     criterios = client.table("criterios").select("*").eq("concurso_id", concurso["id"]).execute().data
     with st.expander(f"Matriz de requisitos ({len(criterios)} criterios)"):
-        st.dataframe(criterios)
+        st.table(_tabla_criterios(criterios))
 
     postores = client.table("postores").select("*").eq("concurso_id", concurso["id"]).execute().data
 
@@ -106,20 +124,26 @@ def _gestionar_concursos():
     st.markdown("### Postores")
     for postor in postores:
         dictamen = dictamenes_por_postor.get(postor["id"])
-        columnas = st.columns([3, 2, 2, 2])
-        columnas[0].write(f"**{postor['razon_social']}**  \nRUC {postor['ruc']}")
 
-        if dictamen:
-            columnas[1].write(_semaforo(dictamen["veredicto"]))
-            columnas[2].write(f"Puntaje: {dictamen['puntaje']}")
-            if columnas[3].button("Ver / Descargar Acta", key=f"acta_{postor['id']}"):
-                st.session_state["postor_para_acta"] = postor["id"]
-        else:
-            columnas[1].write("⏳ Pendiente")
-            if columnas[2].button("Evaluar", key=f"evaluar_{postor['id']}"):
-                with st.spinner("Los agentes Legal y Técnico están deliberando..."):
-                    evaluar_postor(postor["id"])
-                st.rerun()
+        with st.container(border=True):
+            columnas = st.columns([3, 2, 2, 2])
+            with columnas[0]:
+                st.markdown(f"**{postor['razon_social']}**")
+                st.caption(f"RUC {postor['ruc']}")
+
+            if dictamen:
+                with columnas[1]:
+                    st.markdown(_badge_veredicto(dictamen["veredicto"]), unsafe_allow_html=True)
+                columnas[2].write(f"Puntaje: {dictamen['puntaje']}")
+                if columnas[3].button("Ver / Descargar Acta", key=f"acta_{postor['id']}"):
+                    st.session_state["postor_para_acta"] = postor["id"]
+            else:
+                with columnas[1]:
+                    st.markdown(badge_html("⏳ Pendiente", "ml-badge-pendiente"), unsafe_allow_html=True)
+                if columnas[2].button("Evaluar", key=f"evaluar_{postor['id']}"):
+                    with st.spinner("Los agentes Legal y Técnico están deliberando..."):
+                        evaluar_postor(postor["id"])
+                    st.rerun()
 
     postor_id_acta = st.session_state.get("postor_para_acta")
     postor_acta = next((p for p in postores if p["id"] == postor_id_acta), None)
