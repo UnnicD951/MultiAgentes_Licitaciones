@@ -6,3 +6,5 @@ python-docx
 openpyxl
 pandas
 python-dotenv
+pytesseract
+pdf2image

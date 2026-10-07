@@ -28,8 +28,25 @@ En Supabase → Storage, crea un bucket llamado `licitaciones` (privado).
 cp .env.example .env
 ```
 
-Completa `.env` con tu `SUPABASE_URL`, `SUPABASE_KEY` (service role o anon con políticas
-adecuadas) y `GEMINI_API_KEY`. Este archivo nunca se sube al repositorio.
+Completa `.env` con `SUPABASE_URL`, `SUPABASE_KEY` (service role), `GEMINI_API_KEY` y
+`ADMIN_PASSWORD` (la contraseña de acceso al Portal del Comité). Este archivo nunca se sube
+al repositorio — si trabajas en equipo, comparte estos valores por un canal privado (no por
+GitHub, no por chat público), nunca los subas a ningún commit.
+
+### 3.1. OCR para PDFs escaneados (opcional en local)
+
+Las páginas sin texto seleccionable (imágenes escaneadas) se leen con OCR (Tesseract). Un PDF
+con texto normal no lo necesita. Para usarlo en local en Windows:
+
+1. Instala [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) y marca el idioma
+   **Spanish** durante la instalación.
+2. Instala [Poppler para Windows](https://github.com/oschwartz10612/poppler-windows/releases)
+   y descomprímelo en una carpeta.
+3. En `.env` define `TESSERACT_CMD` (ruta a `tesseract.exe`) y `POPPLER_PATH` (carpeta `bin`
+   de Poppler) si no están en el PATH.
+
+En Streamlit Community Cloud no hace falta configurar nada: el archivo `packages.txt` instala
+Tesseract (con español) y Poppler automáticamente.
 
 ### 4. Instalación
 

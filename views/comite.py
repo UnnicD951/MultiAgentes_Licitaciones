@@ -8,6 +8,7 @@ from rag.pdf_extract import extraer_paginas, texto_completo
 from reports.acta import generar_acta
 from reports.matriz import generar_matriz_comparativa
 from theme import badge_html
+from views.avisos import mostrar_avisos_extraccion
 
 COLUMNAS_CRITERIOS = ["tipo", "descripcion", "referencia", "obligatorio"]
 
@@ -45,15 +46,25 @@ def _crear_concurso():
     client.table("concursos").update({"bases_pdf_path": path}).eq("id", concurso["id"]).execute()
 
     try:
-        with st.spinner("El Agente Extractor está generando la matriz de requisitos..."):
-            paginas = extraer_paginas(contenido)
-            texto = texto_completo(paginas)
-            criterios = extraer_criterios(texto)
+        with st.spinner("Leyendo las Bases y generando la matriz de requisitos..."):
+            extraccion = extraer_paginas(contenido)
+            criterios = (
+                extraer_criterios(texto_completo(extraccion.paginas)) if extraccion.paginas else []
+            )
     except Exception:
         st.error(
             f"La convocatoria '{nombre}' se creó, pero el Agente Extractor no pudo generar "
             "la matriz de requisitos (el PDF podría estar dañado o el servicio de IA no "
             "respondió). Puedes eliminar esta convocatoria y volver a intentarlo."
+        )
+        return
+
+    mostrar_avisos_extraccion("Bases", extraccion)
+
+    if not extraccion.paginas:
+        st.error(
+            f"La convocatoria '{nombre}' se creó, pero no se pudo leer texto de las Bases. "
+            "Verifica que el PDF no esté protegido o dañado, y vuelve a intentarlo."
         )
         return
 

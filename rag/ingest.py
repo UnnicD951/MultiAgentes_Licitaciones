@@ -1,11 +1,13 @@
 from db.client import get_client
 from rag.embeddings import embed_texto
-from rag.pdf_extract import dividir_en_fragmentos, extraer_paginas
+from rag.pdf_extract import ResultadoExtraccion, dividir_en_fragmentos, extraer_paginas
 
 
-def indexar_documento(concurso_id: str, postor_id: str | None, origen: str, contenido: bytes) -> int:
-    paginas = extraer_paginas(contenido)
-    fragmentos = dividir_en_fragmentos(paginas)
+def indexar_documento(
+    concurso_id: str, postor_id: str | None, origen: str, contenido: bytes
+) -> ResultadoExtraccion:
+    extraccion = extraer_paginas(contenido)
+    fragmentos = dividir_en_fragmentos(extraccion.paginas)
 
     filas = []
     for fragmento in fragmentos:
@@ -22,4 +24,4 @@ def indexar_documento(concurso_id: str, postor_id: str | None, origen: str, cont
     if filas:
         get_client().table("documentos_chunks").insert(filas).execute()
 
-    return len(filas)
+    return extraccion

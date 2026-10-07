@@ -3,6 +3,7 @@ import streamlit as st
 from db.client import get_client
 from db.storage import descargar_archivo, subir_archivo
 from rag.ingest import indexar_documento
+from views.avisos import mostrar_avisos_extraccion
 
 COLUMNAS_CRITERIOS = ["tipo", "descripcion", "referencia", "obligatorio"]
 
@@ -91,14 +92,17 @@ def render():
     }).eq("id", postor["id"]).execute()
 
     try:
-        with st.spinner("Indexando tus documentos para la evaluación..."):
-            indexar_documento(concurso["id"], postor["id"], "propuesta", propuesta_bytes)
-            indexar_documento(concurso["id"], postor["id"], "cv", cv_bytes)
+        with st.spinner("Leyendo e indexando tus documentos para la evaluación..."):
+            extraccion_propuesta = indexar_documento(concurso["id"], postor["id"], "propuesta", propuesta_bytes)
+            extraccion_cv = indexar_documento(concurso["id"], postor["id"], "cv", cv_bytes)
     except Exception:
         st.error(
             "Tu postulación se registró, pero hubo un problema al procesar tus documentos. "
             "Por favor contacta al comité para confirmar que tus archivos se recibieron correctamente."
         )
         return
+
+    mostrar_avisos_extraccion("Propuesta Técnica", extraccion_propuesta)
+    mostrar_avisos_extraccion("CV Documentado", extraccion_cv)
 
     st.success("Postulación registrada correctamente. El comité evaluará tu expediente.")
